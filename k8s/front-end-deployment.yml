@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: capstone-frontend
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: capstone-frontend
@@ -16,7 +16,7 @@ spec:
         - name: capstone-frontend
           image: thong19981110vn/capstone-frontend:latest
           ports:
-          - containerPort: 80
+            - containerPort: 80
           imagePullPolicy: Always
   strategy:
     type: RollingUpdate
