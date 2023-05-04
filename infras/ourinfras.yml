@@ -27,7 +27,6 @@ Parameters:
     Type: String
 
 Resources:
-  Resources:
   VPC:
     Type: 'AWS::EC2::VPC'
     Properties:
