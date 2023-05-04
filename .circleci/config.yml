@@ -19,7 +19,7 @@ jobs:
       - run:
           name: Validate CloudFormation template
           command: |
-            return 1
+            #return 1
             cfn-lint infras/ourinfras.yml
 
   deploy-cfn:
