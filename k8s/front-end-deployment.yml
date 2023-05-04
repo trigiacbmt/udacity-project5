@@ -13,11 +13,11 @@ spec:
         app: capstone-frontend
     spec:
       containers:
-      - name: capstone-frontend
-        image: thong19981110vn/capstone-frontend:latest
-        ports:
-        - containerPort: 80
-      imagePullPolicy: Always
+        - name: capstone-frontend
+          image: thong19981110vn/capstone-frontend:latest
+          ports:
+          - containerPort: 80
+          imagePullPolicy: Always
   strategy:
     type: RollingUpdate
     rollingUpdate:
