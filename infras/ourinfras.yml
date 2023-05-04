@@ -125,19 +125,6 @@ Resources:
             Principal:
               Service: "ec2.amazonaws.com"
             Action: "sts:AssumeRole"
-      Path: "/"
-      Policies:
-        - PolicyName: "EKSWorkerNodesPolicy"
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: "Allow"
-                Action:
-                  - "eks:DescribeNodegroup"
-                  - "eks:DescribeCluster"
-                  - "eks:ListNodegroups"
-                  - "eks:ListClusters"
-                Resource: "*"
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
         - "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
