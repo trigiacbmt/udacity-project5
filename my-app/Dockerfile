@@ -1,12 +1,12 @@
 FROM node:13.8.0-stretch AS build
-WORKDIR /
-# COPY package.json ./
-COPY . .
-
+WORKDIR /app
+COPY package*.json ./
 RUN npm install
+COPY . .
 RUN npm run build
-RUN ls -la
 
-FROM nginx:latest
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY index.html /usr/share/nginx/html/index.html
+FROM nginx:1.21.0-alpine
+COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
