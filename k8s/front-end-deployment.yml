@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capstone-frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: capstone-frontend
+  template:
+    metadata:
+      labels:
+        app: capstone-frontend
+    spec:
+      containers:
+      - name: capstone-frontend
+        image: thong19981110vn/capstone-frontend:latest
+        ports:
+        - containerPort: 80
+      imagePullPolicy: Always
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
