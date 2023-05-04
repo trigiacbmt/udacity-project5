@@ -1,4 +1,4 @@
-FROM node:13.8.0-stretch AS build
+FROM node:14.16.0-alpine as build
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
