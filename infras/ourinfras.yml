@@ -111,47 +111,6 @@ Resources:
       Tags:
         - Key: Name
           Value: security-group
-  LoadBalancer:
-    Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
-    Properties:
-      Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      SecurityGroups:
-        - !Ref SecurityGroup
-      Tags:
-        - Key: Name
-          Value: load-balancer
-  LaunchConfiguration:
-    Type: 'AWS::AutoScaling::LaunchConfiguration'
-    Properties:
-      ImageId: ami-0889a44b331db0194
-      InstanceType: t2.micro
-      SecurityGroups:
-        - !Ref SecurityGroup
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          echo "Hello, World!" > index.html
-          nohup python -m SimpleHTTPServer 80 &
-      Tags:
-        - Key: Name
-          Value: launch-configuration
-  AutoScalingGroup:
-    Type: 'AWS::AutoScaling::AutoScalingGroup'
-    Properties:
-      VPCZoneIdentifier:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      LaunchConfigurationName: !Ref LaunchConfiguration
-      LoadBalancerNames:
-        - !Ref LoadBalancer
-      MinSize: 1
-      MaxSize: 3
-      DesiredCapacity: 2
-      Tags:
-        - Key: Name
-          Value: auto-scaling-group
   ECR:
     Type: 'AWS::ECR::Repository'
     Properties:
@@ -183,6 +142,7 @@ Resources:
     Type: 'AWS::EKS::Cluster'
     Properties:
       Name: my-cluster
+      RoleArn: !GetAtt NodeRole.Arn
       ResourcesVpcConfig:
         SecurityGroupIds:
           - !Ref SecurityGroup
