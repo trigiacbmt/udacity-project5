@@ -42,7 +42,7 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Ref PublicSubnet1CIDR
-      AvailabilityZone: us-east-1a
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
@@ -51,7 +51,7 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: !Ref PublicSubnet2CIDR
-      AvailabilityZone: us-east-2b
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
