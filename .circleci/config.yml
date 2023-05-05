@@ -133,10 +133,10 @@ jobs:
             cat k8s/front-end-service.yml
       - kubernetes/create-or-update-resource:
           resource-file-path: "k8s/front-end-deployment.yml"
-          resource-name: deployment/capstone-frontend
+          resource-name: deployment/react-app
       - kubernetes/update-container-image:
-          container-image-updates: "capstone-frontend=thong19981110vn/capstone-frontend:latest"
-          resource-name: deployment/capstone-frontend
+          container-image-updates: "react-app=thong19981110vn/capstone-frontend:latest"
+          resource-name: deployment/react-app
       - run:
           name: Restart image
           command: |
@@ -144,7 +144,7 @@ jobs:
       - run:
           name: Restart image
           command: |
-            kubectl rollout restart deployment/capstone-frontend
+            kubectl rollout restart deployment/react-app
 
 workflows:
   capstone:
