@@ -26,4 +26,3 @@ spec:
               cpu: "0.5"
               memory: "512Mi"
       restartPolicy: Always
-      progressDeadlineSeconds: 600
