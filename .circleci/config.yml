@@ -134,19 +134,13 @@ jobs:
       - kubernetes/create-or-update-resource:
           get-rollout-status: true
           resource-file-path: "k8s/front-end-deployment.yml"
-          resource-name: react-app
-          resource-type: deployment
-          wait: true
+          resource-name: deployment/react-app
           namespace: default
-          container-image-updated: true
       - kubernetes/update-container-image:
           get-rollout-status: true
           container-image-updates: "react-app=thong19981110vn/capstone-frontend:latest"
-          resource-name: react-app
-          resource-type: deployment
-          wait: true
+          resource-name: deployment/react-app
           namespace: default
-          container-image-updated: true
       - run:
           name: Restart image
           command: |
