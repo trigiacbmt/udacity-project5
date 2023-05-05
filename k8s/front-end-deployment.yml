@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: react-app
-          image: thong19981110vn/apstone-frontend:latest
+          image: thong19981110vn/capstone-frontend:latest
           ports:
             - containerPort: 80
 ---
