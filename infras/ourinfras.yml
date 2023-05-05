@@ -146,13 +146,48 @@ Resources:
             Action: sts:AssumeRole
       Path: "/"
       Policies:
-        - PolicyName: FullAccessPolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: "*"
-                Resource: "*"
+      - PolicyName: EKSNodeInstancePolicy
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action: eks:Describe*
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:log-group:/aws/eks/*:log-stream:*
+      - PolicyName: EKSWorkerNodePolicy
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action:
+            - ec2:DescribeInstances
+            - ec2:DescribeTags
+            - ec2:CreateTags
+            - ec2:ModifyInstanceAttribute
+            - ec2:DescribeRegions
+            Resource: "*"
+      # Add the Amazon EKS Managed Policies to the IAM role
+      - PolicyName: EKSClusterPolicy
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action: eks:*
+            Resource: !Ref MyEksCluster
+      - PolicyName: EKSServicePolicy
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action:
+            - eks:Describe*
+            - eks:List*
+            - eks:AccessKubernetesApi
+            Resource: "*"
   EKSCluster:
     Type: 'AWS::EKS::Cluster'
     Properties:
