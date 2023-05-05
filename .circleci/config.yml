@@ -40,7 +40,7 @@ jobs:
           command: |
             aws cloudformation deploy \
             --template-file infras/ourinfras.yml \
-            --parameters infras/parameters.json \
+            --parameter-overrides $(jq -r '.[] | [.ParameterKey, .ParameterValue] | "\(.[0])=\(.[1])"' ./infras/parameters.json) \
             --stack-name << parameters.stack-name-1 >> \
             --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
       - run:
@@ -49,7 +49,7 @@ jobs:
           command: |
             aws cloudformation deploy \
             --template-file infras/eks-server.yml \
-            --parameters infras/eks-parameters.json \
+            --parameter-overrides $(jq -r '.[] | [.ParameterKey, .ParameterValue] | "\(.[0])=\(.[1])"' ./infras/eks-parameters.json) \
             --stack-name << parameters.stack-name-2 >> \
             --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
 
