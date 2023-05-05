@@ -141,7 +141,7 @@ Resources:
       Name: my-cluster
       RoleArn: !GetAtt NodeRole.Arn
       ResourcesVpcConfig:
-        SecurityGroup:
+        SecurityGroups:
           - !Ref SecurityGroup
         Subnets:
           - !Ref PublicSubnet1
