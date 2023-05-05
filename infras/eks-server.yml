@@ -40,11 +40,11 @@ Resources:
     Type: 'AWS::EKS::Nodegroup'
     Properties:
       AmiType: AL2_x86_64
-      ClusterName: eksctl-demo
+      ClusterName: capstone-udacity
       InstanceTypes:
         - m5.large
       Labels:
-        alpha.eksctl.io/cluster-name: eksctl-demo
+        alpha.eksctl.io/cluster-name: capstone-udacity
         alpha.eksctl.io/nodegroup-name: ng-b2c44d78
       LaunchTemplate:
         Id: !Ref LaunchTemplate
