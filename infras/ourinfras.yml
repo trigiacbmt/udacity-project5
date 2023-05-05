@@ -42,6 +42,7 @@ Resources:
       VpcId: !Ref VPC
       CidrBlock: !Ref PublicSubnet1CIDR
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
@@ -51,6 +52,7 @@ Resources:
       VpcId: !Ref VPC
       CidrBlock: !Ref PublicSubnet2CIDR
       AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
