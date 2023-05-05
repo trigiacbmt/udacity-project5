@@ -1,28 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: capstone-frontend
+  name: react-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: capstone-frontend
+      app: react-app
   template:
     metadata:
       labels:
-        app: capstone-frontend
+        app: react-app
     spec:
       containers:
-        - name: capstone-frontend
-          image: thong19981110vn/capstone-frontend:latest
+        - name: react-app
+          image: thong19981110vn/apstone-frontend:latest
           ports:
             - containerPort: 80
-          imagePullPolicy: Always
-          resources:
-            limits:
-              cpu: "1"
-              memory: "1Gi"
-            requests:
-              cpu: "0.5"
-              memory: "512Mi"
-      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: react-app-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: react-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
