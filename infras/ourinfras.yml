@@ -1,193 +1,372 @@
-Description: >
-  Submition Capstone infra
-
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  EKS cluster (dedicated VPC: true, dedicated IAM: true) [created and managed by
+  eksctl]
 Parameters:
-  # Paramenters are entirely optional.
-  # but using them will make your cloudformation templates more reusable
-  # use them for things that may change over time, such as instance type,
-  # VPCs and so on.
+  EnvironmentName:
+      Description: An environment name that will be prefixed to resource names
+      Type: String
 
-  VpcCIDR:
-    Description: Please enter the IP range (CIDR notation) for this VPC
-    Type: String
-    Default: 10.0.0.0/16
+  VpcCIDR: 
+      Description: Please enter the IP range (CIDR notation) for this VPC
+      Type: String
+      Default: 10.0.0.0/16
 
   PublicSubnet1CIDR:
-    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
-    Type: String
-    Default: 10.0.0.0/24
+      Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+      Type: String
+      Default: 10.0.0.0/24
 
   PublicSubnet2CIDR:
-    Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
-    Type: String
-    Default: 10.0.1.0/24
+      Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
+      Type: String
+      Default: 10.0.1.0/24
 
-  EnvironmentName:
-    Description: An environment name that will be prefixed to resource names
-    Type: String
+  PrivateSubnet1CIDR:
+      Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+      Type: String
+      Default: 10.0.2.0/24
 
+  PrivateSubnet2CIDR:
+      Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+      Type: String
+      Default: 10.0.3.0/24 
+Mappings:
+  ServicePrincipalPartitionMap:
+    aws:
+      EC2: ec2.amazonaws.com
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-cn:
+      EC2: ec2.amazonaws.com.cn
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
+    aws-us-gov:
+      EC2: ec2.amazonaws.com
+      EKS: eks.amazonaws.com
+      EKSFargatePods: eks-fargate-pods.amazonaws.com
 Resources:
-  VPC:
-    Type: 'AWS::EC2::VPC'
+  ClusterSharedNodeSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      CidrBlock: !Ref VpcCIDR
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
+      GroupDescription: Communication between all nodes in the cluster
       Tags:
         - Key: Name
-          Value: !Ref EnvironmentName
-  PublicSubnet1:
-    Type: 'AWS::EC2::Subnet'
-    Properties:
+          Value: !Sub '${EnvironmentName}/ClusterSharedNodeSecurityGroup'
       VpcId: !Ref VPC
-      CidrBlock: !Ref PublicSubnet1CIDR
-      AvailabilityZone: !Select [ 0, !GetAZs '' ]
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
-  PublicSubnet2:
-    Type: 'AWS::EC2::Subnet'
+  ControlPlane:
+    Type: 'AWS::EKS::Cluster'
     Properties:
-      VpcId: !Ref VPC
-      CidrBlock: !Ref PublicSubnet2CIDR
-      AvailabilityZone: !Select [ 1, !GetAZs '' ]
-      MapPublicIpOnLaunch: true
+      KubernetesNetworkConfig:
+        IpFamily: ipv4
+      Name: capstone-udacity
+      ResourcesVpcConfig:
+        EndpointPrivateAccess: false
+        EndpointPublicAccess: true
+        SecurityGroupIds:
+          - !Ref ControlPlaneSecurityGroup
+        SubnetIds:
+          - !Ref SubnetPublicUSEAST1C
+          - !Ref SubnetPublicUSEAST1B
+          - !Ref SubnetPrivateUSEAST1B
+          - !Ref SubnetPrivateUSEAST1C
+      RoleArn: !GetAtt 
+        - ServiceRole
+        - Arn
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+          Value: !Sub '${EnvironmentName}/ControlPlane'
+      Version: '1.25'
+  ControlPlaneSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Communication between the control plane and worker nodegroups
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/ControlPlaneSecurityGroup'
+      VpcId: !Ref VPC
+  IngressDefaultClusterToNodeSG:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: >-
+        Allow managed and unmanaged nodes to communicate with each other (all
+        ports)
+      FromPort: 0
+      GroupId: !Ref ClusterSharedNodeSecurityGroup
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !GetAtt 
+        - ControlPlane
+        - ClusterSecurityGroupId
+      ToPort: 65535
+  IngressInterNodeGroupSG:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Allow nodes to communicate with each other (all ports)
+      FromPort: 0
+      GroupId: !Ref ClusterSharedNodeSecurityGroup
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !Ref ClusterSharedNodeSecurityGroup
+      ToPort: 65535
+  IngressNodeToDefaultClusterSG:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Allow unmanaged nodes to communicate with control plane (all ports)
+      FromPort: 0
+      GroupId: !GetAtt 
+        - ControlPlane
+        - ClusterSecurityGroupId
+      IpProtocol: '-1'
+      SourceSecurityGroupId: !Ref ClusterSharedNodeSecurityGroup
+      ToPort: 65535
   InternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
       Tags:
         - Key: Name
-          Value: !Ref EnvironmentName
-  VPCGatewayAttachment:
-    Type: 'AWS::EC2::VPCGatewayAttachment'
+          Value: !Sub '${EnvironmentName}/InternetGateway'
+  NATGateway:
+    Type: 'AWS::EC2::NatGateway'
     Properties:
+      AllocationId: !GetAtt 
+        - NATIP
+        - AllocationId
+      SubnetId: !Ref SubnetPublicUSEAST1B
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/NATGateway'
+  NATIP:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/NATIP'
+  NATPrivateSubnetRouteUSEAST1B:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+      RouteTableId: !Ref PrivateRouteTableUSEAST1B
+  NATPrivateSubnetRouteUSEAST1C:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+      RouteTableId: !Ref PrivateRouteTableUSEAST1C
+  PolicyCloudWatchMetrics:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'cloudwatch:PutMetricData'
+            Effect: Allow
+            Resource: '*'
+        Version: 2012-10-17
+      PolicyName: !Sub '${EnvironmentName}-PolicyCloudWatchMetrics'
+      Roles:
+        - !Ref ServiceRole
+  PolicyELBPermissions:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'ec2:DescribeAccountAttributes'
+              - 'ec2:DescribeAddresses'
+              - 'ec2:DescribeInternetGateways'
+            Effect: Allow
+            Resource: '*'
+        Version: 2012-10-17
+      PolicyName: !Sub '${EnvironmentName}-PolicyELBPermissions'
+      Roles:
+        - !Ref ServiceRole
+  PrivateRouteTableUSEAST1B:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/PrivateRouteTableUSEAST1B'
       VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
+  PrivateRouteTableUSEAST1C:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/PrivateRouteTableUSEAST1C'
+      VpcId: !Ref VPC
   PublicRouteTable:
     Type: 'AWS::EC2::RouteTable'
     Properties:
-      VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Public Routes
-  PublicRoute:
+          Value: !Sub '${EnvironmentName}/PublicRouteTable'
+      VpcId: !Ref VPC
+  PublicSubnetRoute:
     Type: 'AWS::EC2::Route'
-    DependsOn: VPCGatewayAttachment
     Properties:
-      RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: '0.0.0.0/0'
+      DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
-  PublicSubnet1RouteTableAssociation:
+      RouteTableId: !Ref PublicRouteTable
+    DependsOn:
+      - VPCGatewayAttachment
+  RouteTableAssociationPrivateUSEAST1B:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
-      SubnetId: !Ref PublicSubnet1
-      RouteTableId: !Ref PublicRouteTable
-  PublicSubnet2RouteTableAssociation:
+      RouteTableId: !Ref PrivateRouteTableUSEAST1B
+      SubnetId: !Ref SubnetPrivateUSEAST1B
+  RouteTableAssociationPrivateUSEAST1C:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
-      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PrivateRouteTableUSEAST1C
+      SubnetId: !Ref SubnetPrivateUSEAST1C
+  RouteTableAssociationPublicUSEAST1B:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
       RouteTableId: !Ref PublicRouteTable
-  SecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
+      SubnetId: !Ref SubnetPublicUSEAST1B
+  RouteTableAssociationPublicUSEAST1C:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
-      GroupDescription: Allow SSH access to EC2 instances
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 0
-          ToPort: 65535
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: security-group
-  ECR:
-    Type: 'AWS::ECR::Repository'
-    Properties:
-      RepositoryName: my-repo
-  NodeRole:
-    Type: "AWS::IAM::Role"
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref SubnetPublicUSEAST1C
+  ServiceRole:
+    Type: 'AWS::IAM::Role'
     Properties:
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
         Statement:
-          - Effect: "Allow"
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
             Principal:
-              Service: 
-                - "ec2.amazonaws.com"
-                - "eks.amazonaws.com"
-            Action: "sts:AssumeRole"
+              Service:
+                - !FindInMap 
+                  - ServicePrincipalPartitionMap
+                  - !Ref 'AWS::Partition'
+                  - EKS
+        Version: 2012-10-17
       ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-        - "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-        - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-        - "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-        - "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
-  EKSCluster:
-    Type: 'AWS::EKS::Cluster'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonEKSClusterPolicy'
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonEKSVPCResourceController'
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/ServiceRole'
+  SubnetPrivateUSEAST1B:
+    Type: 'AWS::EC2::Subnet'
     Properties:
-      Name: my-cluster
-      RoleArn: !GetAtt NodeRole.Arn
-      ResourcesVpcConfig:
-        SecurityGroupIds:
-          - !Ref SecurityGroup
-        SubnetIds:
-          - !Ref PublicSubnet1
-          - !Ref PublicSubnet2
-  WorkerNodeGroup:
-    Type: AWS::EKS::Nodegroup
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      Tags:
+        - Key: kubernetes.io/role/internal-elb
+          Value: '1'
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/SubnetPrivateUSEAST1B'
+      VpcId: !Ref VPC
+  SubnetPrivateUSEAST1C:
+    Type: 'AWS::EC2::Subnet'
     Properties:
-      ClusterName: !Ref EKSCluster
-      NodeRole: !GetAtt NodeRole.Arn
-      Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      InstanceTypes:
-        - t3.medium
-      ScalingConfig:
-        DesiredSize: 2
-        MaxSize: 2
-        MinSize: 2
-
-Outputs:
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      Tags:
+        - Key: kubernetes.io/role/internal-elb
+          Value: '1'
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/SubnetPrivateUSEAST1C'
+      VpcId: !Ref VPC
+  SubnetPublicUSEAST1B:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: kubernetes.io/role/elb
+          Value: '1'
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/SubnetPublicUSEAST1B'
+      VpcId: !Ref VPC
+  SubnetPublicUSEAST1C:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: kubernetes.io/role/elb
+          Value: '1'
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/SubnetPublicUSEAST1C'
+      VpcId: !Ref VPC
   VPC:
-    Description: A reference to the created VPC
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}/VPC'
+  VPCGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+Outputs:
+  ARN:
+    Value: !GetAtt 
+      - ControlPlane
+      - Arn
+    Export:
+      Name: !Sub '${EnvironmentName}::ARN'
+  CertificateAuthorityData:
+    Value: !GetAtt 
+      - ControlPlane
+      - CertificateAuthorityData
+  ClusterSecurityGroupId:
+    Value: !GetAtt 
+      - ControlPlane
+      - ClusterSecurityGroupId
+    Export:
+      Name: !Sub '${EnvironmentName}::ClusterSecurityGroupId'
+  ClusterStackName:
+    Value: !Ref 'EnvironmentName'
+  Endpoint:
+    Value: !GetAtt 
+      - ControlPlane
+      - Endpoint
+    Export:
+      Name: !Sub '${EnvironmentName}::Endpoint'
+  FeatureNATMode:
+    Value: Single
+  SecurityGroup:
+    Value: !Ref ControlPlaneSecurityGroup
+    Export:
+      Name: !Sub '${EnvironmentName}::SecurityGroup'
+  ServiceRoleARN:
+    Value: !GetAtt 
+      - ServiceRole
+      - Arn
+    Export:
+      Name: !Sub '${EnvironmentName}::ServiceRoleARN'
+  SharedNodeSecurityGroup:
+    Value: !Ref ClusterSharedNodeSecurityGroup
+    Export:
+      Name: !Sub '${EnvironmentName}::SharedNodeSecurityGroup'
+  SubnetsPrivate:
+    Value: !Join 
+      - ','
+      - - !Ref SubnetPrivateUSEAST1B
+        - !Ref SubnetPrivateUSEAST1C
+    Export:
+      Name: !Sub '${EnvironmentName}::SubnetsPrivate'
+  SubnetsPublic:
+    Value: !Join 
+      - ','
+      - - !Ref SubnetPublicUSEAST1C
+        - !Ref SubnetPublicUSEAST1B
+    Export:
+      Name: !Sub '${EnvironmentName}::SubnetsPublic'
+  VPC:
     Value: !Ref VPC
     Export:
-      Name: !Sub ${EnvironmentName}-VPCID
-
-  PublicSubnets:
-    Description: A list of the public subnets
-    Value: !Join [",", [!Ref PublicSubnet1, !Ref PublicSubnet2]]
-    Export:
-      Name: !Sub ${EnvironmentName}-PUB-NETS
-
-  PublicSubnet1:
-    Description: A reference to the public subnet in the 1st Availability Zone
-    Value: !Ref PublicSubnet1
-    Export:
-      Name: !Sub ${EnvironmentName}-PUB1-SN
-
-  PublicSubnet2:
-    Description: A reference to the public subnet in the 2nd Availability Zone
-    Value: !Ref PublicSubnet2
-    Export:
-      Name: !Sub ${EnvironmentName}-PUB2-SN
-
-  VPCPublicRouteTable:
-    Description: Public Routing
-    Value: !Ref PublicRouteTable
-    Export:
-      Name: !Sub ${EnvironmentName}-PUB-RT
+      Name: !Sub '${EnvironmentName}::VPC'

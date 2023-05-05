@@ -24,7 +24,10 @@ jobs:
 
   deploy-cfn:
     parameters:
-      stack-name:
+      stack-name-1:
+        description: Name of the CloudFormation stack
+        type: string
+      stack-name-2:
         description: Name of the CloudFormation stack
         type: string
     executor: aws-cli/default
@@ -37,8 +40,17 @@ jobs:
           command: |
             aws cloudformation deploy \
             --template-file infras/ourinfras.yml \
-            --parameter-overrides $(jq -r '.[] | [.ParameterKey, .ParameterValue] | "\(.[0])=\(.[1])"' ./infras/parameters.json) \
-            --stack-name << parameters.stack-name >> \
+            --parameters infras/parameters.json \
+            --stack-name << parameters.stack-name-1 >> \
+            --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
+      - run:
+          name: Deploy EKS
+          no_output_timeout: 30m
+          command: |
+            aws cloudformation deploy \
+            --template-file infras/eks-server.yml \
+            --parameters infras/eks-parameters.json \
+            --stack-name << parameters.stack-name-2 >> \
             --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
 
   lint-frontend:
@@ -120,15 +132,15 @@ jobs:
             echo "##################################"
             cat k8s/front-end-service.yml
       - kubernetes/create-or-update-resource:
-          get-rollout-status: false
+          get-rollout-status: true
           resource-file-path: "k8s/front-end-deployment.yml"
           resource-name: deployment/capstone-frontend
       - kubernetes/create-or-update-resource:
-          get-rollout-status: false
+          get-rollout-status: true
           resource-file-path: "k8s/front-end-service.yml"
           resource-name: deployment/capstone-frontend
       - kubernetes/update-container-image:
-          get-rollout-status: false
+          get-rollout-status: true
           container-image-updates: "capstone-frontend=thong19981110vn/capstone-frontend:latest"
           resource-name: deployment/capstone-frontend
       - run:
@@ -145,7 +157,8 @@ workflows:
     jobs:
       - cfn-lint
       - deploy-cfn:
-          stack-name: Udacity-Capstone
+          stack-name-1: Udacity-Capstone
+          stack-name-2: Udacity-Capstone-Nodegroup
           requires:
             - cfn-lint
       - lint-frontend
@@ -153,7 +166,7 @@ workflows:
           requires:
             - lint-frontend
       - deploy-frontend:
-          cluster-name: "my-cluster"
+          cluster-name: "capstone-udacity"
           requires:
             - build-frontend
             - deploy-cfn
