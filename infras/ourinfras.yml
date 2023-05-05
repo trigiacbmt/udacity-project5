@@ -177,7 +177,7 @@ Resources:
           Statement:
           - Effect: Allow
             Action: eks:*
-            Resource: !Ref MyEksCluster
+            Resource: !Ref EKSCluster
       - PolicyName: EKSServicePolicy
         PolicyDocument:
           Version: "2012-10-17"
